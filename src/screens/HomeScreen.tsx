@@ -6,19 +6,33 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSelector } from 'react-redux'; // Redux Hook
+import { RootState } from '../store'; // Store tipin
 import { useTheme } from '../Themes/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
 
+export type RootStackParamList = {
+  Home: undefined;
+  Profile: undefined;
+};
+
+type HomeScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'Home'
+>;
+
 interface HomeScreenProps {
   onLogout: () => void;
-  navigateToProfile: () => void;
 }
 
-export const HomeScreen = ({
-  onLogout,
-  navigateToProfile,
-}: HomeScreenProps) => {
+export const HomeScreen = ({ onLogout }: HomeScreenProps) => {
   const { theme } = useTheme();
+  const navigation = useNavigation<HomeScreenNavigationProp>();
+
+  // REDUX BAĞLANTISI: Kullanıcıyı çekiyoruz
+  const user = useSelector((state: RootState) => state.user);
 
   const iconColor = theme.text;
   const activeColor = theme.primary;
@@ -35,15 +49,13 @@ export const HomeScreen = ({
                 { backgroundColor: theme.primary + '33' },
               ]}
             >
-              {/* Profil ikonunu buraya da ekledik */}
               <Icon name="person" size={18} color={theme.primary} />
             </View>
             <Text style={[styles.userText, { color: theme.text }]}>
-              Kullanıcı Profili
+              {/* Redux'tan gelen kullanıcı adı */}
+              {user.fullName}
             </Text>
           </View>
-          {/* Bildirim veya Ayarlar ikonu gibi duran daire */}
-          <Icon name="ellipsis-horizontal-circle" size={24} color={iconColor} />
         </View>
       </View>
 
@@ -58,11 +70,14 @@ export const HomeScreen = ({
             <View
               style={[styles.postAvatar, { backgroundColor: theme.primary }]}
             >
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>F</Text>
+              {/* Redux'tan gelen harf */}
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                {user.avatarLetter}
+              </Text>
             </View>
             <View>
               <Text style={[styles.postUserName, { color: theme.text }]}>
-                Fatma Yılmaz
+                {user.fullName}
               </Text>
               <Text style={styles.postTime}>Şimdi</Text>
             </View>
@@ -124,7 +139,6 @@ export const HomeScreen = ({
           <Text style={[styles.navLabel, { color: iconColor }]}>Search</Text>
         </TouchableOpacity>
 
-        {/* Ortadaki Artı Butonu */}
         <TouchableOpacity style={styles.addButton}>
           <Icon name="add" size={30} color="#fff" />
         </TouchableOpacity>
@@ -134,16 +148,18 @@ export const HomeScreen = ({
           <Text style={[styles.navLabel, { color: iconColor }]}>Tasks</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem} onPress={navigateToProfile}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Profile')}
+          style={styles.navItem}
+        >
           <Icon name="person-outline" size={24} color={iconColor} />
-          <Text style={[styles.navLabel, { color: iconColor }]}>User</Text>
+          <Text style={[styles.navLabel, { color: iconColor }]}>Profile</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 };
 
-// ... Styles kısmı aynı kalabilir, sadece butonlardaki hizalamayı küçük bir dokunuşla düzelttim:
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 50 },
   topSection: { paddingHorizontal: 20, marginBottom: 10 },
@@ -165,7 +181,6 @@ const styles = StyleSheet.create({
   },
   userText: { fontSize: 14, fontWeight: '600' },
   feed: { flex: 1, paddingHorizontal: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
   postCard: { borderRadius: 15, padding: 15, borderWidth: 1, marginBottom: 20 },
   postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   postAvatar: {
@@ -185,12 +200,12 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     justifyContent: 'space-around',
   },
-  actionButton: { flexDirection: 'row', alignItems: 'center', padding: 5 }, // row ekledik
+  actionButton: { flexDirection: 'row', alignItems: 'center', padding: 5 },
   actionText: { fontSize: 13, fontWeight: 'bold', marginLeft: 5 },
   bottomBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center', // End yerine Center daha iyi durur
+    alignItems: 'center',
     paddingVertical: 10,
     borderTopWidth: 1,
     paddingBottom: 25,

@@ -7,23 +7,34 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store';
 import { useTheme } from '../Themes/ThemeContext';
 import Icon from 'react-native-vector-icons/Ionicons';
+// DİKKAT: RootStackParamList sadece App.tsx'den gelmeli!
+import type { RootStackParamList } from '../../App';
 
 const { width } = Dimensions.get('window');
 
+// Navigasyon tipi tanımlama
+type ProfileScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'Profile'
+>;
+
 interface ProfileScreenProps {
   onLogout: () => void;
-  navigateToHome: () => void;
 }
 
-export const ProfileScreen = ({
-  onLogout,
-  navigateToHome,
-}: ProfileScreenProps) => {
+export const ProfileScreen = ({ onLogout }: ProfileScreenProps) => {
   const { theme } = useTheme();
+  const navigation = useNavigation<ProfileScreenNavigationProp>();
 
-  // HATAYI BURASI ÇÖZÜYOR: Eksik olan değişkenleri tanımladık
+  // REDUX: Bilgileri merkezi depodan çekiyoruz
+  const user = useSelector((state: RootState) => state.user);
+
   const iconColor = theme.text;
   const activeColor = theme.primary;
 
@@ -43,23 +54,25 @@ export const ProfileScreen = ({
           <View
             style={[styles.avatarLarge, { backgroundColor: theme.primary }]}
           >
-            <Text style={styles.avatarLetter}>F</Text>
+            <Text style={styles.avatarLetter}>{user.avatarLetter || '?'}</Text>
           </View>
 
           <View style={styles.statsContainer}>
             <View style={styles.statBox}>
-              <Text style={[styles.statNumber, { color: theme.text }]}>12</Text>
+              <Text style={[styles.statNumber, { color: theme.text }]}>
+                {user.postCount}
+              </Text>
               <Text style={styles.statLabel}>Gönderi</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={[styles.statNumber, { color: theme.text }]}>
-                245
+                {user.followerCount}
               </Text>
               <Text style={styles.statLabel}>Takipçi</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={[styles.statNumber, { color: theme.text }]}>
-                180
+                {user.followingCount}
               </Text>
               <Text style={styles.statLabel}>Takip</Text>
             </View>
@@ -69,15 +82,15 @@ export const ProfileScreen = ({
         {/* 3. KULLANICI BİLGİSİ */}
         <View style={styles.bioSection}>
           <Text style={[styles.userName, { color: theme.text }]}>
-            Fatma Yılmaz
+            {user.fullName || 'İsimsiz Kullanıcı'}
           </Text>
           <Text style={[styles.userBio, { color: theme.text }]}>
-            Yazılım Geliştirici | 📐{'\n'}
-            React Native & TypeScript Tutkunu.
+            {user.bio || 'Henüz bir biyografi eklenmedi.'}
           </Text>
 
           <TouchableOpacity
             style={[styles.editButton, { borderColor: theme.inputBorder }]}
+            onPress={() => console.log('Düzenleme ekranına git')}
           >
             <Text style={[styles.editButtonText, { color: theme.text }]}>
               Profili Düzenle
@@ -87,7 +100,7 @@ export const ProfileScreen = ({
 
         {/* 4. GÖNDERİLER (GRID) */}
         <View style={styles.gridContainer}>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(item => (
+          {[1, 2, 3, 4, 5, 6].map(item => (
             <View
               key={item}
               style={[
@@ -104,7 +117,7 @@ export const ProfileScreen = ({
         </View>
       </ScrollView>
 
-      {/* 5. BOTTOM BAR - Home Screen ile aynı yapıda */}
+      {/* 5. BOTTOM BAR */}
       <View
         style={[
           styles.bottomBar,
@@ -114,7 +127,10 @@ export const ProfileScreen = ({
           },
         ]}
       >
-        <TouchableOpacity style={styles.navItem} onPress={navigateToHome}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => navigation.navigate('Home')}
+        >
           <Icon name="home-outline" size={24} color={iconColor} />
           <Text style={[styles.navLabel, { color: iconColor }]}>Home</Text>
         </TouchableOpacity>
@@ -124,7 +140,6 @@ export const ProfileScreen = ({
           <Text style={[styles.navLabel, { color: iconColor }]}>Search</Text>
         </TouchableOpacity>
 
-        {/* Ortadaki Artı Butonu */}
         <TouchableOpacity style={styles.addButton}>
           <Icon name="add" size={30} color="#fff" />
         </TouchableOpacity>
@@ -205,7 +220,6 @@ const styles = StyleSheet.create({
   },
   navItem: { alignItems: 'center', justifyContent: 'center', flex: 1 },
   navLabel: { fontSize: 10, fontWeight: '600', marginTop: 4 },
-  // HomeScreen'den eksik olan addButton stilini buraya ekledik:
   addButton: {
     backgroundColor: '#3498db',
     width: 54,
@@ -214,10 +228,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
   },
 });

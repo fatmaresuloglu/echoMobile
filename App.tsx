@@ -1,72 +1,71 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { useSelector, useDispatch, Provider } from 'react-redux';
+import { logout } from './src/store/userSlice';
+import { RootState, store } from './src/store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ThemeProvider, useTheme } from './src/Themes/ThemeContext';
-import { LoginScreen } from './src/screens/LoginScreen';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { ThemeProvider } from './src/Themes/ThemeContext';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { LoginScreen } from './src/screens/LoginScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { RegisterScreen } from './src/screens/RegisterScreen'; // 1. Kayıt ekranını import et
 
-const MainLayout = () => {
-  const { theme } = useTheme();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [checking, setChecking] = useState(true);
-  const [activeTab, setActiveTab] = useState('home');
-
-  useEffect(() => {
-    const checkToken = async () => {
-      try {
-        const token = await AsyncStorage.getItem('userToken');
-        if (token) setIsLoggedIn(true);
-      } catch (e) {
-        console.log('Token hatası');
-      } finally {
-        setChecking(false);
-      }
-    };
-    checkToken();
-  }, []);
-
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem('userToken');
-    setIsLoggedIn(false);
-    setActiveTab('home');
-  };
-
-  if (checking)
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-
-  if (!isLoggedIn)
-    return <LoginScreen onLoginSuccess={() => setIsLoggedIn(true)} />;
-
-  return (
-    <View style={{ flex: 1 }}>
-      {activeTab === 'home' ? (
-        <HomeScreen
-          onLogout={handleLogout}
-          navigateToProfile={() => setActiveTab('profile')}
-        />
-      ) : (
-        <ProfileScreen
-          onLogout={handleLogout}
-          navigateToHome={() => setActiveTab('home')}
-        />
-      )}
-    </View>
-  );
+// 2. Navigasyon listesine Register'ı ekle (TypeScript için)
+export type RootStackParamList = {
+  Login: undefined;
+  Register: undefined; // Burası kritik
+  Home: undefined;
+  Profile: undefined;
 };
 
-export default function App() {
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+function AppContent() {
+  const dispatch = useDispatch();
+  const isAuthenticated = useSelector(
+    (state: RootState) => state.user.isAuthenticated,
+  );
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('userToken');
+      dispatch(logout());
+    } catch (e) {
+      console.log('Logout hatası:', e);
+    }
+  };
+
   return (
-    <ThemeProvider>
-      <MainLayout />
-    </ThemeProvider>
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {!isAuthenticated ? (
+          // 3. Giriş yapmamış kullanıcılar için her iki ekranı da buraya koy
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen name="Home">
+              {props => <HomeScreen {...props} onLogout={handleLogout} />}
+            </Stack.Screen>
+            <Stack.Screen name="Profile">
+              {props => <ProfileScreen {...props} onLogout={handleLogout} />}
+            </Stack.Screen>
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
 
-const styles = StyleSheet.create({
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-});
+export default function App() {
+  return (
+    <Provider store={store}>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </Provider>
+  );
+}
