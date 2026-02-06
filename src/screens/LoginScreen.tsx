@@ -41,32 +41,44 @@ export const LoginScreen = () => {
         password,
       });
 
+      // DOBRA KONTROL: response.data'nın yapısını logla ki ne geldiğini gör
+      console.log('Giriş Yanıtı:', response.data);
+
       const { token, user } = response.data;
 
-      // 1. Token'ı yerel hafızaya kaydet
+      if (!token || !user) {
+        throw new Error('Sunucudan eksik veri geldi.');
+      }
+
+      // 1. Token'ı kaydet
       await AsyncStorage.setItem('userToken', token);
 
-      // 2. REDUX GÜNCELLEME
-      // Backend 'name' gönderiyor, biz Redux'ta 'fullName' olarak saklıyoruz.
-      // "İsimsiz Kullanıcı" yazısını burada tarihe gömüyoruz.
+      // 2. REDUX GÜNCELLEME - BURASI KRİTİK!
+      // 'id' değerinin doğru geldiğinden emin oluyoruz (user.id)
       dispatch(
         loginSuccess({
-          id: user.id,
+          id: user.id, // Burası terminaldeki '0' sorununu çözer
           email: user.email,
           username: user.username,
-          fullName: user.name || 'İsimsiz Kullanıcı',
-          avatarLetter: user.name ? user.name.charAt(0).toUpperCase() : '?',
+          fullName: user.name || user.fullName || 'İsimsiz Kullanıcı',
+          avatarLetter: (user.name || user.fullName || '?')
+            .charAt(0)
+            .toUpperCase(),
           bio: user.bio || '',
-          postCount: 0,
-          followerCount: 0,
-          followingCount: 0,
+          postCount: user._count?.posts || 0,
+          followerCount: user._count?.followers || 0,
+          followingCount: user._count?.following || 0,
         }),
       );
 
-      // Not: Eğer App.tsx içindeki kontrol otomatik yönlendirmiyorsa:
-      // navigation.navigate('Home');
+      // Başarılı girişte ana sayfaya yönlendir
+      // Eğer App.tsx otomatik yapmıyorsa burayı aktif et:
+      // navigation.replace('Home');
     } catch (error: any) {
-      console.error('Giriş Hatası Detayı:', error.response?.data);
+      console.error(
+        'Giriş Hatası Detayı:',
+        error.response?.data || error.message,
+      );
       const errorMsg = error.response?.data?.error || 'Giriş yapılamadı.';
       Alert.alert('HATA', errorMsg);
     } finally {
@@ -114,6 +126,9 @@ export const LoginScreen = () => {
 
         <View style={styles.headerArea}>
           <Text style={[styles.title, { color: theme.primary }]}>ECHO</Text>
+          <Text style={{ color: theme.text, opacity: 0.6, marginTop: -10 }}>
+            Sesini Duyur
+          </Text>
         </View>
 
         {/* Giriş Formu */}

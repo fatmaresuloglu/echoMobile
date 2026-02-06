@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,19 +6,23 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Modal,
+  TextInput,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
+import { loginSuccess } from '../store/userSlice';
 import { useTheme } from '../Themes/ThemeContext';
+import apiClient from '../api/apiClient';
 import Icon from 'react-native-vector-icons/Ionicons';
-// DİKKAT: RootStackParamList sadece App.tsx'den gelmeli!
 import type { RootStackParamList } from '../../App';
 
 const { width } = Dimensions.get('window');
 
-// Navigasyon tipi tanımlama
 type ProfileScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
   'Profile'
@@ -29,14 +33,55 @@ interface ProfileScreenProps {
 }
 
 export const ProfileScreen = ({ onLogout }: ProfileScreenProps) => {
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const navigation = useNavigation<ProfileScreenNavigationProp>();
+  const dispatch = useDispatch();
 
-  // REDUX: Bilgileri merkezi depodan çekiyoruz
+  // REDUX: Bilgileri çekiyoruz
   const user = useSelector((state: RootState) => state.user);
+
+  // --- MODAL & FORM STATES ---
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [newName, setNewName] = useState(user.fullName || '');
+  const [newBio, setNewBio] = useState(user.bio || '');
+  const [updateLoading, setUpdateLoading] = useState(false);
 
   const iconColor = theme.text;
   const activeColor = theme.primary;
+
+  // --- PROFİL GÜNCELLEME FONKSİYONU ---
+  const handleSaveProfile = async () => {
+    if (!newName.trim()) {
+      Alert.alert('Uyarı', 'İsim alanı boş bırakılamaz.');
+      return;
+    }
+
+    setUpdateLoading(true);
+    try {
+      const response = await apiClient.put('/users/update', {
+        name: newName,
+        bio: newBio,
+      });
+
+      // Redux'ı güncelle (İsimsiz kullanıcıyı yok ediyoruz)
+      dispatch(
+        loginSuccess({
+          ...user,
+          fullName: response.data.user.name,
+          bio: response.data.user.bio,
+          avatarLetter: response.data.user.name.charAt(0).toUpperCase(),
+        }),
+      );
+
+      setModalVisible(false);
+      Alert.alert('Başarılı', 'Profilin güncellendi.');
+    } catch (error: any) {
+      console.error('GÜNCELLEME HATASI:', error.response?.data);
+      Alert.alert('HATA', 'Profil güncellenirken bir sorun oluştu.');
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -54,7 +99,14 @@ export const ProfileScreen = ({ onLogout }: ProfileScreenProps) => {
           <View
             style={[styles.avatarLarge, { backgroundColor: theme.primary }]}
           >
-            <Text style={styles.avatarLetter}>{user.avatarLetter || '?'}</Text>
+            <Text
+              style={[
+                styles.avatarLetter,
+                { color: isDarkMode ? '#000' : '#fff' },
+              ]}
+            >
+              {user.avatarLetter || '?'}
+            </Text>
           </View>
 
           <View style={styles.statsContainer}>
@@ -90,7 +142,11 @@ export const ProfileScreen = ({ onLogout }: ProfileScreenProps) => {
 
           <TouchableOpacity
             style={[styles.editButton, { borderColor: theme.inputBorder }]}
-            onPress={() => console.log('Düzenleme ekranına git')}
+            onPress={() => {
+              setNewName(user.fullName);
+              setNewBio(user.bio);
+              setModalVisible(true);
+            }}
           >
             <Text style={[styles.editButtonText, { color: theme.text }]}>
               Profili Düzenle
@@ -116,6 +172,85 @@ export const ProfileScreen = ({ onLogout }: ProfileScreenProps) => {
           ))}
         </View>
       </ScrollView>
+
+      {/* --- EDİT PROFİL MODAL --- */}
+      <Modal visible={isModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View
+            style={[styles.modalContent, { backgroundColor: theme.background }]}
+          >
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              Profili Düzenle
+            </Text>
+
+            <TextInput
+              style={[
+                styles.modalInput,
+                {
+                  color: theme.text,
+                  borderColor: theme.inputBorder,
+                  backgroundColor: theme.inputBg,
+                },
+              ]}
+              placeholder="Ad Soyad"
+              placeholderTextColor="#666"
+              value={newName}
+              onChangeText={setNewName}
+            />
+
+            <TextInput
+              style={[
+                styles.modalInput,
+                {
+                  color: theme.text,
+                  borderColor: theme.inputBorder,
+                  backgroundColor: theme.inputBg,
+                  height: 100,
+                },
+              ]}
+              placeholder="Biyografi"
+              placeholderTextColor="#666"
+              value={newBio}
+              onChangeText={setNewBio}
+              multiline
+              textAlignVertical="top"
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={styles.modalCancelBtn}
+              >
+                <Text style={{ color: '#e74c3c', fontWeight: 'bold' }}>
+                  Vazgeç
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleSaveProfile}
+                disabled={updateLoading}
+                style={[
+                  styles.modalSaveBtn,
+                  { backgroundColor: theme.primary },
+                ]}
+              >
+                {updateLoading ? (
+                  <ActivityIndicator color={isDarkMode ? '#000' : '#fff'} />
+                ) : (
+                  <Text
+                    style={{
+                      color: isDarkMode ? '#000' : '#fff',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    Kaydet
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* 5. BOTTOM BAR */}
       <View
@@ -181,7 +316,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarLetter: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
+  avatarLetter: { fontSize: 32, fontWeight: 'bold' },
   statsContainer: {
     flexDirection: 'row',
     flex: 1,
@@ -228,5 +363,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  // MODAL STYLES
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalContent: { borderRadius: 25, padding: 25, elevation: 5 },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    fontSize: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  modalCancelBtn: { flex: 1, alignItems: 'center', paddingVertical: 15 },
+  modalSaveBtn: {
+    flex: 2,
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderRadius: 12,
+    marginLeft: 10,
   },
 });

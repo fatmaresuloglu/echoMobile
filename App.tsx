@@ -10,6 +10,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen'; // 1. Kayıt ekranını import et
+import { CreatePostScreen } from './src/screens/CreatePostScreen';
 
 // 2. Navigasyon listesine Register'ı ekle (TypeScript için)
 export type RootStackParamList = {
@@ -17,6 +18,7 @@ export type RootStackParamList = {
   Register: undefined; // Burası kritik
   Home: undefined;
   Profile: undefined;
+  CreatePost: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -53,6 +55,11 @@ function AppContent() {
             <Stack.Screen name="Profile">
               {props => <ProfileScreen {...props} onLogout={handleLogout} />}
             </Stack.Screen>
+            <Stack.Screen
+              name="CreatePost"
+              component={CreatePostScreen}
+              options={{ headerShown: false }}
+            />
           </>
         )}
       </Stack.Navigator>
