@@ -49,47 +49,13 @@ export const HomeScreen = ({ onLogout }: HomeScreenProps) => {
     setLoading(true);
     try {
       const response = await apiClient.get('/posts');
+      // Backend'den gelen veride artık isLiked ve likeCount var
       setPosts(response.data);
     } catch (error: any) {
       console.log('Postlar yüklenemedi:', error.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDelete = async (postId: number) => {
-    // DOBRA NOT: Bu log terminalde görünmüyorsa dokunma ulaşmıyordur.
-    console.log('!!! SİLME TETİKLENDİ !!! ID:', postId);
-
-    // Menüyü hemen kapatmıyoruz, Alert onayından sonra kapatacağız
-    // veya basıldığı an kapatmak istiyorsan bile onPress içinde yapmalısın.
-
-    Alert.alert('Gönderiyi Sil', 'Bu gönderiyi silmek istediğine emin misin?', [
-      { text: 'Vazgeç', style: 'cancel', onPress: () => setActiveMenuId(null) },
-      {
-        text: 'Sil',
-        style: 'destructive',
-        onPress: async () => {
-          setActiveMenuId(null);
-          try {
-            const response = await apiClient.delete(`/posts/${postId}`);
-
-            if (response.status === 200 || response.status === 204) {
-              setPosts(currentPosts =>
-                currentPosts.filter(post => post.id !== postId),
-              );
-              Alert.alert('Başarılı', 'Gönderi silindi.');
-            }
-          } catch (error: any) {
-            console.error('Silme Hatası Detayı:', error.response?.data);
-            Alert.alert(
-              'Hata',
-              error.response?.data?.error || 'Post silinemedi.',
-            );
-          }
-        },
-      },
-    ]);
   };
 
   useEffect(() => {
@@ -99,26 +65,56 @@ export const HomeScreen = ({ onLogout }: HomeScreenProps) => {
   }, [isFocused]);
 
   const handleLike = async (postId: number) => {
-    setPosts(currentPosts =>
-      currentPosts.map(post => {
-        if (post.id === postId) {
-          const isLikedNow = !post.isLiked;
-          return {
-            ...post,
-            isLiked: isLikedNow,
-            likeCount: isLikedNow
-              ? (post.likeCount || 0) + 1
-              : (post.likeCount || 0) - 1,
-          };
-        }
-        return post;
-      }),
-    );
+    try {
+      // 1. Backend'e isteği gönder
+      const response = await apiClient.post(`/posts/${postId}/like`);
+      const { liked } = response.data; // Backend'den "true" (beğenildi) veya "false" (geri alındı) döner
+
+      // 2. State'i güncelle
+      setPosts(currentPosts =>
+        currentPosts.map(post => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              isLiked: liked,
+              // Eğer liked true ise sayıyı 1 artır, false ise 1 azalt
+              likeCount: liked
+                ? (post.likeCount || 0) + 1
+                : Math.max(0, (post.likeCount || 1) - 1),
+            };
+          }
+          return post;
+        }),
+      );
+    } catch (error) {
+      console.error('Beğeni hatası:', error);
+      Alert.alert('Hata', 'Beğeni işlemi şu an yapılamıyor.');
+    }
+  };
+
+  const handleDelete = async (postId: number) => {
+    Alert.alert('Gönderiyi Sil', 'Bu gönderiyi silmek istediğine emin misin?', [
+      { text: 'Vazgeç', style: 'cancel', onPress: () => setActiveMenuId(null) },
+      {
+        text: 'Sil',
+        style: 'destructive',
+        onPress: async () => {
+          setActiveMenuId(null);
+          try {
+            await apiClient.delete(`/posts/${postId}`);
+            setPosts(currentPosts =>
+              currentPosts.filter(post => post.id !== postId),
+            );
+          } catch (error: any) {
+            Alert.alert('Hata', 'Post silinemedi.');
+          }
+        },
+      },
+    ]);
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Menüyü kapatmak için boş alana dokunma desteği (onTouchStart yerine bu daha güvenli) */}
       <Pressable
         style={StyleSheet.absoluteFill}
         onPress={() => setActiveMenuId(null)}
@@ -212,7 +208,6 @@ export const HomeScreen = ({ onLogout }: HomeScreenProps) => {
                         color={theme.text}
                       />
                     </TouchableOpacity>
-
                     {activeMenuId === post.id && (
                       <View
                         style={[
@@ -239,7 +234,6 @@ export const HomeScreen = ({ onLogout }: HomeScreenProps) => {
                             Düzenle
                           </Text>
                         </TouchableOpacity>
-
                         <TouchableOpacity
                           style={[
                             styles.menuItem,
@@ -275,13 +269,14 @@ export const HomeScreen = ({ onLogout }: HomeScreenProps) => {
                   { borderTopColor: theme.inputBorder },
                 ]}
               >
+                {/* BEĞENİ BUTONU GÜNCELLEMESİ */}
                 <TouchableOpacity
                   style={styles.actionButton}
                   onPress={() => handleLike(post.id)}
                 >
                   <Icon
                     name={post.isLiked ? 'heart' : 'heart-outline'}
-                    size={20}
+                    size={22}
                     color={post.isLiked ? '#e74c3c' : theme.text}
                   />
                   <Text
@@ -293,10 +288,11 @@ export const HomeScreen = ({ onLogout }: HomeScreenProps) => {
                     {post.likeCount || 0} Beğeni
                   </Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity style={styles.actionButton}>
                   <Icon
                     name="chatbubble-outline"
-                    size={18}
+                    size={20}
                     color={theme.text}
                   />
                   <Text style={[styles.actionText, { color: theme.text }]}>
